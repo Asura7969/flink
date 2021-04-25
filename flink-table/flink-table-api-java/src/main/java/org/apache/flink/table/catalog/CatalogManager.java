@@ -162,16 +162,12 @@ public final class CatalogManager {
     public void initSchemaResolver(
             boolean isStreamingMode, ExpressionResolverBuilder expressionResolverBuilder) {
         this.schemaResolver =
-                new DefaultSchemaResolver(
-                        isStreamingMode, true, typeFactory, expressionResolverBuilder);
+                new DefaultSchemaResolver(isStreamingMode, typeFactory, expressionResolverBuilder);
     }
 
-    /**
-     * Returns a {@link SchemaResolver} for creating {@link ResolvedSchema} from {@link Schema}
-     * context-aware.
-     */
-    public SchemaResolver getSchemaResolver(boolean supportsMetadata) {
-        return schemaResolver.withMetadata(supportsMetadata);
+    /** Returns a {@link SchemaResolver} for creating {@link ResolvedSchema} from {@link Schema}. */
+    public SchemaResolver getSchemaResolver() {
+        return schemaResolver;
     }
 
     /** Returns a factory for creating fully resolved data types that can be used for planning. */
@@ -854,7 +850,8 @@ public final class CatalogManager {
         return String.format("Could not execute %s in path %s", commandName, objectIdentifier);
     }
 
-    private ResolvedCatalogBaseTable<?> resolveCatalogBaseTable(CatalogBaseTable baseTable) {
+    /** Resolves a {@link CatalogBaseTable} to a validated {@link ResolvedCatalogBaseTable}. */
+    public ResolvedCatalogBaseTable<?> resolveCatalogBaseTable(CatalogBaseTable baseTable) {
         Preconditions.checkState(schemaResolver != null, "Schema resolver is not initialized.");
         if (baseTable instanceof CatalogTable) {
             return resolveCatalogTable((CatalogTable) baseTable);
@@ -865,7 +862,9 @@ public final class CatalogManager {
                 "Unknown kind of catalog base table: " + baseTable.getClass());
     }
 
-    private ResolvedCatalogTable resolveCatalogTable(CatalogTable table) {
+    /** Resolves a {@link CatalogTable} to a validated {@link ResolvedCatalogTable}. */
+    public ResolvedCatalogTable resolveCatalogTable(CatalogTable table) {
+        Preconditions.checkState(schemaResolver != null, "Schema resolver is not initialized.");
         if (table instanceof ResolvedCatalogTable) {
             return (ResolvedCatalogTable) table;
         }
@@ -873,7 +872,9 @@ public final class CatalogManager {
         return new ResolvedCatalogTable(table, resolvedSchema);
     }
 
-    private ResolvedCatalogView resolveCatalogView(CatalogView view) {
+    /** Resolves a {@link CatalogView} to a validated {@link ResolvedCatalogView}. */
+    public ResolvedCatalogView resolveCatalogView(CatalogView view) {
+        Preconditions.checkState(schemaResolver != null, "Schema resolver is not initialized.");
         if (view instanceof ResolvedCatalogView) {
             return (ResolvedCatalogView) view;
         }

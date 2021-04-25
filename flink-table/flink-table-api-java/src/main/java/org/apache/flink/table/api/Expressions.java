@@ -186,29 +186,62 @@ public final class Expressions {
     public static final ApiExpression CURRENT_RANGE =
             apiCall(BuiltInFunctionDefinitions.CURRENT_RANGE);
 
-    /** Returns the current SQL date in UTC time zone. */
+    /**
+     * Returns the current SQL date in local time zone, the return type of this expression is {@link
+     * DataTypes#DATE()}.
+     */
     public static ApiExpression currentDate() {
         return apiCall(BuiltInFunctionDefinitions.CURRENT_DATE);
     }
 
-    /** Returns the current SQL time in UTC time zone. */
+    /**
+     * Returns the current SQL time in local time zone, the return type of this expression is {@link
+     * DataTypes#TIME()}.
+     */
     public static ApiExpression currentTime() {
         return apiCall(BuiltInFunctionDefinitions.CURRENT_TIME);
     }
 
-    /** Returns the current SQL timestamp in UTC time zone. */
+    /**
+     * Returns the current SQL timestamp in local time zone, the return type of this expression is
+     * {@link DataTypes#TIMESTAMP_WITH_LOCAL_TIME_ZONE()}.
+     */
     public static ApiExpression currentTimestamp() {
         return apiCall(BuiltInFunctionDefinitions.CURRENT_TIMESTAMP);
     }
 
-    /** Returns the current SQL time in local time zone. */
+    /**
+     * Returns the current SQL time in local time zone, the return type of this expression is {@link
+     * DataTypes#TIME()}, this is a synonym for {@link Expressions#currentTime()}.
+     */
     public static ApiExpression localTime() {
         return apiCall(BuiltInFunctionDefinitions.LOCAL_TIME);
     }
 
-    /** Returns the current SQL timestamp in local time zone. */
+    /**
+     * Returns the current SQL timestamp in local time zone, the return type of this expression is
+     * {@link DataTypes#TIMESTAMP()}.
+     */
     public static ApiExpression localTimestamp() {
         return apiCall(BuiltInFunctionDefinitions.LOCAL_TIMESTAMP);
+    }
+
+    /**
+     * Converts a numeric type epoch time to {@link DataTypes#TIMESTAMP_LTZ(int)}.
+     *
+     * <p>The supported precision is 0 or 3:
+     *
+     * <ul>
+     *   <li>0 means the numericEpochTime is in second.
+     *   <li>3 means the numericEpochTime is in millisecond.
+     * </ul>
+     *
+     * @param numericEpochTime The epoch time with numeric type.
+     * @param precision The precision to indicate the epoch time is in second or millisecond.
+     * @return The timestamp value with {@link DataTypes#TIMESTAMP_LTZ(int)} type.
+     */
+    public static ApiExpression toTimestampLtz(Object numericEpochTime, Object precision) {
+        return apiCall(BuiltInFunctionDefinitions.TO_TIMESTAMP_LTZ, numericEpochTime, precision);
     }
 
     /**

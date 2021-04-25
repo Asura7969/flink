@@ -74,7 +74,10 @@ public final class CatalogPropertiesUtil {
 
             serializeResolvedSchema(properties, resolvedTable.getResolvedSchema());
 
-            properties.put(COMMENT, resolvedTable.getComment());
+            final String comment = resolvedTable.getComment();
+            if (comment != null && comment.length() > 0) {
+                properties.put(COMMENT, comment);
+            }
 
             serializePartitionKeys(properties, resolvedTable.getPartitionKeys());
 
@@ -231,7 +234,7 @@ public final class CatalogPropertiesUtil {
                 final String dataType = getValue(map, dataTypeKey);
                 final boolean isVirtual = getValue(map, virtualKey, Boolean::parseBoolean);
                 if (metadata.equals(name)) {
-                    builder.columnByMetadata(name, dataType, isVirtual);
+                    builder.columnByMetadata(name, dataType, null, isVirtual);
                 } else {
                     builder.columnByMetadata(name, dataType, metadata, isVirtual);
                 }
