@@ -46,7 +46,6 @@ import org.apache.flink.runtime.jobmanager.JobGraphWriter;
 import org.apache.flink.runtime.jobmaster.JobManagerRunner;
 import org.apache.flink.runtime.jobmaster.JobManagerSharedServices;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
-import org.apache.flink.runtime.jobmaster.JobNotFinishedException;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.jobmaster.factories.DefaultJobManagerJobMetricGroupFactory;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -443,7 +442,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                 && executionType == ExecutionType.RECOVERY) {
             return dispatcherJobFailed(jobId, dispatcherJobResult.getInitializationFailure());
         } else {
-            return jobReachedGloballyTerminalState(dispatcherJobResult.getArchivedExecutionGraph());
+            return jobReachedTerminalState(dispatcherJobResult.getArchivedExecutionGraph());
         }
     }
 
@@ -459,12 +458,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     }
 
     private CleanupJobState dispatcherJobFailed(JobID jobId, Throwable throwable) {
-        if (throwable instanceof JobNotFinishedException) {
-            jobNotFinished(jobId);
-        } else {
-            jobMasterFailed(jobId, throwable);
-        }
-
+        jobMasterFailed(jobId, throwable);
         return CleanupJobState.LOCAL;
     }
 
@@ -767,13 +761,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     private void cleanUpJobData(JobID jobId, boolean cleanupHA) {
         jobManagerMetricGroup.removeJob(jobId);
 
-        boolean cleanupHABlobs = false;
+        boolean jobGraphRemoved = false;
         if (cleanupHA) {
             try {
                 jobGraphWriter.removeJobGraph(jobId);
 
-                // only clean up the HA blobs if we could remove the job from HA storage
-                cleanupHABlobs = true;
+                // only clean up the HA blobs and ha service data for the particular job
+                // if we could remove the job from HA storage
+                jobGraphRemoved = true;
             } catch (Exception e) {
                 log.warn(
                         "Could not properly remove job {} from submitted job graph store.",
@@ -789,6 +784,17 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                         jobId,
                         e);
             }
+
+            if (jobGraphRemoved) {
+                try {
+                    highAvailabilityServices.cleanupJobData(jobId);
+                } catch (Exception e) {
+                    log.warn(
+                            "Could not properly clean data for job {} stored by ha services",
+                            jobId,
+                            e);
+                }
+            }
         } else {
             try {
                 jobGraphWriter.releaseJobGraph(jobId);
@@ -800,7 +806,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
             }
         }
 
-        blobServer.cleanupJob(jobId, cleanupHABlobs);
+        blobServer.cleanupJob(jobId, jobGraphRemoved);
     }
 
     /** Terminate all currently running {@link DispatcherJob}s. */
@@ -832,22 +838,24 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
         fatalErrorHandler.onFatalError(throwable);
     }
 
-    protected CleanupJobState jobReachedGloballyTerminalState(
+    protected CleanupJobState jobReachedTerminalState(
             ArchivedExecutionGraph archivedExecutionGraph) {
         Preconditions.checkArgument(
-                archivedExecutionGraph.getState().isGloballyTerminalState(),
-                "Job %s is in state %s which is not globally terminal.",
+                archivedExecutionGraph.getState().isTerminalState(),
+                "Job %s is in state %s which is not terminal.",
                 archivedExecutionGraph.getJobID(),
                 archivedExecutionGraph.getState());
 
         log.info(
-                "Job {} reached globally terminal state {}.",
+                "Job {} reached terminal state {}.",
                 archivedExecutionGraph.getJobID(),
                 archivedExecutionGraph.getState());
 
         archiveExecutionGraph(archivedExecutionGraph);
 
-        return CleanupJobState.GLOBAL;
+        return archivedExecutionGraph.getState().isGloballyTerminalState()
+                ? CleanupJobState.GLOBAL
+                : CleanupJobState.LOCAL;
     }
 
     private void archiveExecutionGraph(ArchivedExecutionGraph archivedExecutionGraph) {
@@ -874,10 +882,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                                 throwable);
                     }
                 });
-    }
-
-    protected void jobNotFinished(JobID jobId) {
-        log.info("Job {} was not finished by JobManager.", jobId);
     }
 
     private void jobMasterFailed(JobID jobId, Throwable cause) {

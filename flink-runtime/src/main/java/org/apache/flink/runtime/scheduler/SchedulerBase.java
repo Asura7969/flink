@@ -415,9 +415,6 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
             final Set<ExecutionJobVertex> jobVerticesToRestore =
                     getInvolvedExecutionJobVertices(vertices);
 
-            // a global restore restores all Job Vertices
-            assert jobVerticesToRestore.size() == getExecutionGraph().getAllVertices().size();
-
             checkpointCoordinator.restoreLatestCheckpointedStateToAll(jobVerticesToRestore, true);
 
         } else {
@@ -467,7 +464,7 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
 
     private void notifyCoordinatorsOfEmptyGlobalRestore() throws Exception {
         for (final ExecutionJobVertex ejv : getExecutionGraph().getAllVertices().values()) {
-            for (final OperatorCoordinator coordinator : ejv.getOperatorCoordinators()) {
+            for (final OperatorCoordinatorHolder coordinator : ejv.getOperatorCoordinators()) {
                 coordinator.resetToCheckpoint(OperatorCoordinator.NO_CHECKPOINT, null);
             }
         }
